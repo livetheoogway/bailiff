@@ -5,6 +5,17 @@
 # License: MIT
 
 # =====================================================
+# Determine if being executed or sourced
+# =====================================================
+# This needs to be at the very beginning of the file
+_BAILIFF_SOURCED=0
+if [[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]]; then
+  _BAILIFF_SOURCED=1
+elif [[ -n $BASH_VERSION && $0 != "$BASH_SOURCE" ]]; then
+  _BAILIFF_SOURCED=1
+fi
+
+# =====================================================
 # Configuration
 # =====================================================
 
@@ -19,14 +30,17 @@
 : ${BAILIFF_INSTALLED_FILE:="$BAILIFF_CACHE_DIR/installed_tools"}
 
 # Create cache directory if it doesn't exist
-mkdir -p "$BAILIFF_CACHE_DIR"
-touch "$BAILIFF_INSTALLED_FILE"
+if [[ ! -d "$BAILIFF_CACHE_DIR" ]]; then
+  mkdir -p "$BAILIFF_CACHE_DIR"
+fi
+if [[ ! -f "$BAILIFF_INSTALLED_FILE" ]]; then
+  touch "$BAILIFF_INSTALLED_FILE"
+fi
 
 # Map for custom binary names to package names
 typeset -A BAILIFF_TOOL_MAP
 # Default mappings
 BAILIFF_TOOL_MAP=(
-  # Common tool mappings (binary → package)
   "nvim" "neovim"
   "python" "python3"
   "rg" "ripgrep"
@@ -146,20 +160,15 @@ _bailiff_is_installed() {
   command -v "$tool" &> /dev/null
 }
 
-# =====================================================
-# Main Function
-# =====================================================
-
-# Main function to summon a tool
-bailiff() {
-  # Help message if no arguments
-  if [[ $# -eq 0 || "$1" == "--help" || "$1" == "-h" ]]; then
-    cat <<EOF
+# Print help message
+_bailiff_help() {
+  cat <<EOF
 bailiff - A tool to summon CLI tools when needed
 
 Usage:
   bailiff [PACKAGE_MANAGER] TOOL [PACKAGE]  # Summon a tool (install if not present)
   bailiff -x TOOL                           # Verbose mode, shows already installed tools
+  bailiff --force TOOL                      # Force check/install regardless of cache
   bailiff --list                            # List all summoned tools
   bailiff --clear-cache                     # Clear the cache
   bailiff --version                         # Show version
@@ -182,17 +191,57 @@ Configuration (add to your .zshrc before sourcing bailiff.sh):
     "custom-tool" "actual-package-name"
   )
 EOF
+}
+
+# Function to handle command not found
+_bailiff_command_not_found_handler() {
+  local cmd=$1
+  
+  # Check if auto-summon is enabled and if the command is in our list
+  if [[ "$BAILIFF_AUTO_SUMMON" -eq 1 && " ${BAILIFF_SUMMONED_TOOLS[@]} " =~ " ${cmd} " ]]; then
+    _bailiff_print "🔍 Bailiff: Command '$cmd' not found. Attempting to summon..."
+    
+    if bailiff "$cmd"; then
+      # Run the command if installation succeeded
+      _bailiff_print "🚀 Bailiff: Running '$cmd $@'..."
+      "$cmd" "${@:2}"
+      return $?
+    fi
+  fi
+  
+  # Fallback to system handler if we couldn't resolve it
+  if typeset -f original_command_not_found_handler > /dev/null; then
+    original_command_not_found_handler "$@"
+  else
+    echo "zsh: command not found: $cmd" >&2
+    return 127
+  fi
+}
+
+# =====================================================
+# Main Function
+# =====================================================
+
+# Main function to summon a tool
+bailiff() {
+  # No arguments given
+  if [[ $# -eq 0 ]]; then
+    _bailiff_help
     return 0
   fi
   
   # Handle special commands
   case "$1" in
+    --help|-h)
+      _bailiff_help
+      return 0
+      ;;
     --version|-v)
       echo "bailiff v1.0.0"
       return 0
       ;;
     --list|-l)
-      if [[ -f "$BAILIFF_INSTALLED_FILE" ]]; then
+      if [[ -f "$BAILIFF_INSTALLED_FILE" && -s "$BAILIFF_INSTALLED_FILE" ]]; then
         _bailiff_print "🧰 Tools summoned by Bailiff:"
         cat "$BAILIFF_INSTALLED_FILE" | sort | uniq
       else
@@ -205,42 +254,95 @@ EOF
       _bailiff_print "🧹 Bailiff: Cache cleared"
       return 0
       ;;
-    -x|--verbose)
-      # Enable verbose mode for this call
-      BAILIFF_VERBOSE=1
-      # Shift the arguments to process the next one
-      shift
-      # If no more arguments, show help
-      if [[ $# -eq 0 ]]; then
-        bailiff --help
-        return 0
-      fi
-      ;;
   esac
   
   local package_manager=""
   local tool=""
   local package=""
+  local force_check=0
+  local verbose_mode=0
+  local i=0
+  local arg=""
   
-  # Parse arguments - detect if first arg is a package manager
-  if [[ "$1" == "brew" || "$1" == "apt" || "$1" == "dnf" || "$1" == "yum" || "$1" == "pacman" ]]; then
+  # Process all arguments to find flags
+  for arg in "$@"; do
+    if [[ "$arg" == "--force" || "$arg" == "-f" ]]; then
+      force_check=1
+    elif [[ "$arg" == "-x" || "$arg" == "--verbose" ]]; then
+      verbose_mode=1
+    fi
+  done
+  
+  # If verbose mode is enabled, set the global flag
+  if [[ "$verbose_mode" -eq 1 ]]; then
+    BAILIFF_VERBOSE=1
+  fi
+  
+  # Extract the command and package from the arguments
+  # First, check if the first argument is a package manager
+  if [[ "$1" =~ ^(brew|apt|dnf|yum|pacman)$ ]]; then
     package_manager="$1"
-    if [[ $# -lt 2 ]]; then
+    shift
+    
+    # Now find the first non-flag argument for the tool name
+    for arg in "$@"; do
+      if [[ "$arg" != "--force" && "$arg" != "-f" && 
+            "$arg" != "-x" && "$arg" != "--verbose" ]]; then
+        tool="$arg"
+        break
+      fi
+    done
+    
+    if [[ -z "$tool" ]]; then
       _bailiff_print "❌ Bailiff: No tool specified after package manager."
       return 1
     fi
-    tool="$2"
-    package="${3:-$tool}"
+    
     _bailiff_print "Using package manager: $package_manager"
   else
-    tool="$1"
-    package="${2:-$tool}"
+    # Find the first non-flag argument for the tool name
+    for arg in "$@"; do
+      if [[ "$arg" != "--force" && "$arg" != "-f" && 
+            "$arg" != "-x" && "$arg" != "--verbose" ]]; then
+        tool="$arg"
+        break
+      fi
+    done
+    
+    if [[ -z "$tool" ]]; then
+      _bailiff_print "❌ Bailiff: No tool specified."
+      return 1
+    fi
+    
     package_manager=$(_bailiff_detect_package_manager)
   fi
   
+  # Find the package name (usually after the tool name)
+  package="$tool"
+  
+  # Check arguments after the tool name for package name
+  local found_tool=0
+  for arg in "$@"; do
+    if [[ "$found_tool" -eq 1 && "$arg" != "--force" && "$arg" != "-f" && 
+          "$arg" != "-x" && "$arg" != "--verbose" ]]; then
+      package="$arg"
+      break
+    fi
+    
+    if [[ "$arg" == "$tool" ]]; then
+      found_tool=1
+    fi
+  done
+  
   # Check if we have a mapping for this tool
-  if [[ -n "${BAILIFF_TOOL_MAP[$tool]}" && -z "$3" ]]; then
+  if [[ -n "${BAILIFF_TOOL_MAP[$tool]}" ]]; then
     package="${BAILIFF_TOOL_MAP[$tool]}"
+  fi
+  
+  # If force flag is set, clear the cache for this tool
+  if [[ "$force_check" -eq 1 ]]; then
+    rm -f "$BAILIFF_CACHE_DIR/${tool}_cache"
+    _bailiff_print "🔄 Bailiff: Forcing check for '$tool'"
   fi
   
   # Add to summoned tools list
@@ -273,66 +375,31 @@ EOF
   return $result
 }
 
-# Function to handle command not found
-bailiff_command_not_found_handler() {
-  local cmd=$1
-  
-  # Check if auto-summon is enabled and if the command is in our list
-  if [[ "$BAILIFF_AUTO_SUMMON" -eq 1 && " ${BAILIFF_SUMMONED_TOOLS[@]} " =~ " ${cmd} " ]]; then
-    _bailiff_print "🔍 Bailiff: Command '$cmd' not found. Attempting to summon..."
-    
-    if bailiff "$cmd"; then
-      # Run the command if installation succeeded
-      _bailiff_print "🚀 Bailiff: Running '$cmd $@'..."
-      "$cmd" "${@:2}"
-      return $?
-    fi
-  fi
-  
-  # Fallback to system handler if we couldn't resolve it
-  if type command_not_found_handler 2>/dev/null | grep -q function; then
-    command_not_found_handler "$@"
-  else
-    echo "zsh: command not found: $cmd" >&2
-    return 127
-  fi
-}
-
 # =====================================================
 # Setup
 # =====================================================
 
-# Detect if being sourced or executed directly
-if [[ "${ZSH_EVAL_CONTEXT:-}" == *:file:* ]]; then
-  # Being sourced in ZSH
-  SOURCED=1
-elif [[ -n "${BASH_VERSION:-}" && "${BASH_SOURCE[0]}" != "${0}" ]]; then
-  # Being sourced in Bash
-  SOURCED=1
-else
-  # Being executed directly
-  SOURCED=0
-fi
-
-# Set up if sourced
-if [[ "$SOURCED" -eq 1 ]]; then
-  # Hook into ZSH command not found
-  if [[ "$BAILIFF_AUTO_SUMMON" -eq 1 ]]; then
-    # Backup original handler if it exists
-    if typeset -f command_not_found_handler > /dev/null; then
-      functions[original_command_not_found_handler]=$functions[command_not_found_handler]
-    fi
-    
-    # Override command_not_found_handler
-    command_not_found_handler() {
-      bailiff_command_not_found_handler "$@"
+# Setup the command not found handler
+if [[ $_BAILIFF_SOURCED -eq 1 && "$BAILIFF_AUTO_SUMMON" -eq 1 ]]; then
+  # Backup original handler if it exists
+  if typeset -f command_not_found_handler > /dev/null; then
+    function original_command_not_found_handler() {
+      echo "zsh: command not found: $1" >&2
+      return 127
     }
   fi
   
-  # Return success when sourced
-  return 0
-else
-  # If executed directly, run the bailiff command with arguments
+  # Define the new handler
+  function command_not_found_handler() {
+    _bailiff_command_not_found_handler "$@"
+  }
+fi
+
+# If the script is executed directly, not sourced, process arguments
+if [[ $_BAILIFF_SOURCED -eq 0 ]]; then
   bailiff "$@"
   exit $?
 fi
+
+# When sourced, return success
+return 0

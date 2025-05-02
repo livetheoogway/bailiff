@@ -95,6 +95,7 @@ bailiff --clear-cache   # Clear the cache
 bailiff --version       # Show version
 bailiff --help          # Show help
 bailiff -x nvim         # Verbose mode, shows already installed tools
+bailiff --force asdf    # Force check/install regardless of cache status
 ```
 
 ## How It Works
@@ -103,6 +104,34 @@ bailiff -x nvim         # Verbose mode, shows already installed tools
 2. Bailiff checks if the tool is already installed
 3. If not installed and not recently checked, Bailiff attempts to install it
 4. Future calls to the missing tool will auto-install it when used
+
+## Forcing Installation Checks
+
+When Bailiff reports that a tool "was checked recently and is not installed," it means the tool wasn't found during a previous check, and Bailiff is using its cache to avoid checking again too soon.
+
+There are two ways to force Bailiff to ignore its cache and check again:
+
+1. **For a specific tool** (with flexible syntax):
+   ```bash
+   bailiff asdf --force     # The --force flag can go after the tool name
+   bailiff --force asdf     # Or before the tool name
+   bailiff brew asdf --force  # Works with package manager specified too
+   ```
+   This only clears the cache for the specified tool.
+
+2. **For all tools**:
+   ```bash
+   bailiff --clear-cache
+   bailiff asdf
+   ```
+   This clears the entire cache before checking.
+
+The force option is useful when:
+- You've manually installed a tool and want Bailiff to recognize it
+- You've recently added a package source that might now have the tool
+- You're testing different package managers for the same tool
+
+Without force, Bailiff uses its cache to speed up shell startup when multiple tools are configured.
 
 ## Verbose Mode
 
@@ -159,12 +188,17 @@ zsh bailiff.sh --help                   # Show help
 zsh bailiff.sh --clear-cache            # Clear cache 
 zsh bailiff.sh brew htop                # Install htop with Homebrew
 zsh bailiff.sh -x nvim                  # Check if nvim is installed (verbose)
+zsh bailiff.sh asdf --force             # Force check for asdf even if recently checked
 
-# Test by sourcing
-source bailiff.sh
+# Test by sourcing (preferred method)
+source bailiff.sh                       # Loads bailiff without displaying help
 bailiff --list                          # List installed tools
 bailiff brew antibody                   # Install antibody with Homebrew
+bailiff rg --force                      # Force check for ripgrep
+bailiff --force brew asdf               # Force check with package manager specified
 ```
+
+**Important**: When sourcing the script in your `.zshrc` or interactively, no help text is displayed. The help will only appear when running the command with no arguments (`bailiff`) after sourcing.
 
 ## License
 
