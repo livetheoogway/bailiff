@@ -1,0 +1,91 @@
+#compdef bailiff
+
+# Completion script for Bailiff
+
+# Cache commonly used tools for quicker completion
+_bailiff_common_tools=(
+  'nvim:Neovim text editor'
+  'vim:Vi IMproved text editor'
+  'htop:Interactive process viewer'
+  'jq:Lightweight and flexible JSON processor'
+  'rg:Ripgrep, a faster grep alternative'
+  'fd:Simple, fast and user-friendly alternative to find'
+  'bat:Cat clone with syntax highlighting'
+  'eza:Modern ls replacement'
+  'tmux:Terminal multiplexer'
+  'fzf:Command-line fuzzy finder'
+  'curl:Tool for transferring data from or to a server'
+  'wget:Internet file retriever'
+  'git:Distributed version control system'
+  'node:JavaScript runtime environment'
+  'npm:Node package manager'
+  'python:Python programming language'
+  'pip:Python package installer'
+  'cargo:Rust package manager'
+  'go:Go programming language'
+  'docker:Container platform'
+  'kubectl:Kubernetes command-line tool'
+  'terraform:Infrastructure as code tool'
+)
+
+# Handle subcommands
+_bailiff_commands=(
+  '--list:List all summoned tools'
+  '--clear-cache:Clear the tool cache'
+  '--version:Show version information'
+  '--help:Show help message'
+)
+
+local -a _package_managers
+_package_managers=(
+  'brew:Homebrew package manager'
+  'apt:Advanced Package Tool for Debian-based systems'
+  'dnf:Package manager for RPM-based distributions'
+  'yum:Yellowdog Updater Modified for RPM-based systems'
+  'pacman:Package manager for Arch Linux'
+)
+
+# Use a cache to speed up completion
+_bailiff() {
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '1: :->command_or_tool' \
+    '2: :->package'
+
+  case $state in
+    command_or_tool)
+      # Combine both command options and common tools
+      _alternative \
+        'commands:bailiff command:_describe "bailiff command" _bailiff_commands' \
+        'common_tools:common tools:_describe "common tools" _bailiff_common_tools'
+      ;;
+    package)
+      # Only show package managers if we're providing the optional package parameter
+      case $words[2] in
+        --*)
+          # No second argument for command options
+          ;;
+        *)
+          # If we're completing a package name, suggest package managers
+          local -a _packages
+          
+          # Check which package manager is available and prioritize its packages
+          if command -v brew >/dev/null 2>&1; then
+            # If Homebrew is available, get list of available packages
+            # This can be slow, so limit it to a reasonable number
+            _packages=(${(f)"$(brew search --formulae 2>/dev/null | head -20 | sed 's/^/brew:/')"})
+          elif command -v apt >/dev/null 2>&1; then
+            # If apt is available, suggest some common packages
+            _packages=('apt:Most commonly used packages are shown...')
+          fi
+          
+          _describe "package name" _packages
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_bailiff "$@"
