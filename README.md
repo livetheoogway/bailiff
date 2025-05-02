@@ -19,14 +19,14 @@ Bailiff is a lightweight tool manager for your shell environment that ensures CL
 ### Homebrew
 
 ```bash
-brew install yourusername/bailiff/bailiff
+brew install livetheoogway/bailiff/bailiff
 ```
 
 ### Manual Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/bailiff.git ~/.local/share/bailiff
+git clone https://github.com/livetheoogway/bailiff.git ~/.local/share/bailifft
 
 # Add to your .zshrc
 echo 'source "$HOME/.local/share/bailiff/bailiff.sh"' >> ~/.zshrc
