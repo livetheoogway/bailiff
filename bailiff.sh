@@ -1,7 +1,8 @@
 #!/usr/bin/env zsh
 
 # bailiff.sh - A tool to summon CLI tools when needed
-# Version: 1.0.0
+# Version: 1.0.2
+# Author: tushar.naik
 # License: MIT
 
 # =====================================================
@@ -237,7 +238,7 @@ bailiff() {
       return 0
       ;;
     --version|-v)
-      echo "bailiff v1.0.0"
+      echo "bailiff v1.0.2"
       return 0
       ;;
     --list|-l)
