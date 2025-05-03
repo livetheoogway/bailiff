@@ -8,7 +8,7 @@ Bailiff is a lightweight tool manager for your shell environment that ensures CL
 
 Moving from one Mac to another, I found myself spending a lot of time installing and managing CLI tools. Setting up a new development environment involved manually tracking down and installing dozens of utilities that I use regularly. I wanted a much simpler and cleaner way to handle these migrations.
 
-[zinit](https://github.com/zdharma-continuum/zinit) was great for managing ZSH plugins, but I found it slightly tedious to set up for CLI tools. I wanted something similar but much simple, that could:
+[zinit](https://github.com/zdharma-continuum/zinit) was great for managing ZSH plugins, but I found it slightly tedious to set up for CLI tools. I wanted something similar that allowed me to:
 
 1. Declare tool dependencies in a single configuration file
 2. Install tools on-demand without slowing down shell startup
