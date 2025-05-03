@@ -70,21 +70,30 @@ BAILIFF_TOOL_MAP=(
 
 ```bash
 # Editors
-bailiff nvim         # Neovim
-bailiff brew code    # Visual Studio Code via Homebrew
+bailiff nvim                 # Neovim editor
+bailiff brew macvim          # MacVim via Homebrew
+bailiff brew --force vscode  # Force VS Code installation check via Homebrew
 
 # CLI utilities
-bailiff jq           # JSON processor
-bailiff htop         # Process manager
-bailiff eza          # Modern ls replacement
-bailiff bat          # cat with syntax highlighting
-bailiff fd           # fd-find (modern find)
-bailiff brew rg      # ripgrep (modern grep) via Homebrew
+bailiff jq                   # JSON processor
+bailiff htop                 # Process viewer/manager
+bailiff eza                  # Modern ls replacement
+bailiff bat                  # cat with syntax highlighting
+bailiff fd                   # Modern alternative to find
+bailiff brew ripgrep         # Fast grep alternative via Homebrew (package name)
+bailiff brew rg ripgrep      # Fast grep alternative via Homebrew (command differs from package)
 
 # Development tools
-bailiff brew node    # Node.js via Homebrew
-bailiff apt pip      # Python package manager via apt
-bailiff docker       # Docker (automatic package manager)
+bailiff brew node            # Node.js via Homebrew
+bailiff brew python          # Python via Homebrew
+bailiff docker               # Docker (uses auto-detected package manager)
+bailiff go                   # Go programming language
+bailiff -x rustup            # Check if rustup is installed (verbose mode)
+
+# Package manager examples
+bailiff brew gh              # GitHub CLI via Homebrew
+bailiff apt neofetch         # Neofetch via apt
+bailiff pacman fzf           # Fuzzy finder via pacman
 ```
 
 ### Command-line Usage

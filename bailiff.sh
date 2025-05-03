@@ -24,7 +24,7 @@ fi
 : ${BAILIFF_CACHE_EXPIRY:=86400}  # 24 hours in seconds
 : ${BAILIFF_LOG_FILE:="$BAILIFF_CACHE_DIR/summons.log"}
 : ${BAILIFF_PACKAGE_MANAGER:="auto"}  # auto, brew, apt, yum, pacman
-: ${BAILIFF_QUIET:=0}  # Set to 1 to suppress most messages
+: ${BAILIFF_QUIET:=1}  # Set to 1 to suppress most messages
 : ${BAILIFF_VERBOSE:=0}  # Set to 1 to show more details (e.g., already installed)
 : ${BAILIFF_AUTO_SUMMON:=1}  # Set to 0 to disable auto-summoning when command not found
 : ${BAILIFF_INSTALLED_FILE:="$BAILIFF_CACHE_DIR/installed_tools"}
