@@ -54,7 +54,7 @@ brew install livetheoogway/bailiff/bailiff
 Add the following line to your `.zshrc`, for the auto-summoning feature to work:
 
 ```bash
-source "$(brew --prefix)/bin/bailiff"
+echo "source \"\$(/opt/homebrew/bin/bailiff --source-script)\"" >> ~/.zshrc
 ```
 
 ### Manual Installation
