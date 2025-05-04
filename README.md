@@ -6,6 +6,19 @@ Bailiff is a lightweight tool manager for your shell environment that ensures CL
 
 ## Motivation
 
+### 1. zsh: command not found: jq
+
+Typically when you type a command that is not installed, you get a message like this:
+
+```bash
+btop
+zsh: command not found: btop
+```
+This video should be self explanatory.
+![Bailiff](bailiff-demo-1.webp)
+
+### 2. setting up a new development environment
+
 Moving from one Mac to another, I found myself spending a lot of time installing and managing CLI tools. Setting up a new development environment involved manually tracking down and installing dozens of utilities that I use regularly. I wanted a much simpler and cleaner way to handle these migrations.
 
 [zinit](https://github.com/zdharma-continuum/zinit) was great for managing ZSH plugins, but I found it slightly tedious to set up for CLI tools. I wanted something similar that allowed me to:
@@ -17,10 +30,13 @@ Moving from one Mac to another, I found myself spending a lot of time installing
 
 I created Bailiff to solve these problems with a simple, declarative approach. It is pretty much a single shell script. Rather than installing everything upfront or writing complex setup scripts, Bailiff lets you define the tools you use and handles the installation only when needed. This "lazy loading" approach means faster shell startup times and cleaner environment management.
 
+The name "Bailiff" comes from the idea of summoning something when it's needed - just as a court bailiff brings in witnesses or evidence when called upon.
+
+
 ## Features
 
 - **Zinit-like Syntax**: Simple, clean declaration of tools in your `.zshrc`
-- **Smart Caching**: Checks for tools only once per day by default
+- **Smart Caching**: Checks for tools only once a month by default
 - **Auto-Summoning**: Automatically installs tools when they're first used
 - **Cross-Platform**: Works with Homebrew, apt, yum, pacman, and more
 - **Package Manager Selection**: Specify which package manager to use for each tool
@@ -45,11 +61,32 @@ git clone https://github.com/livetheoogway/bailiff.git ~/.local/share/bailifft
 echo 'source "$HOME/.local/share/bailiff/bailiff.sh"' >> ~/.zshrc
 ```
 
+### Requirements
+- ZSH (or any POSIX-compliant shell)
+- A package manager (Homebrew, apt, yum, pacman, etc.) installed on your system
+
 ## Usage
 
-### Basic Syntax
+### Default behaviour
 
-In your `.zshrc`, after sourcing Bailiff:
+If you directly type in any command that is not installed, Bailiff will try to install it for you. This is the default behavior.
+
+```bash
+# Example: typing 'btop' will trigger Bailiff to install it
+nvim ~/.p10k.zsh
+
+==> Downloading https://ghcr.io/v2/homebrew/core/neovim/manifests/0.11.1
+Already downloaded: /Users/tushar.naik/Library/Caches/Homebrew/downloads/9bbfc7519393ece208bf1f4b9cdd0835d994ebd4096d2c46d983031afea68dc6--neovim-0.11.1.bottle_manifest.json
+==> Fetching dependencies for neovim: lpeg, luajit, luv, tree-sitter, unibilium and utf8proc
+==> Downloading https://ghcr.io/v2/homebrew/core/lpeg/manifests/1.1.0-1 ....
+```
+
+
+### Basic Syntax for auto installation from zshrc
+
+If you are the sort of guy that keeps your .bash_profile or .zshrc backed up and moving across machines, this should help.
+
+In your `.zshrc`, after sourcing Bailiff, keep these pernanently:
 
 ```bash
 # Basic usage
@@ -67,7 +104,7 @@ Configure Bailiff by setting these variables before sourcing:
 ```bash
 # All settings are optional with these defaults
 BAILIFF_CACHE_DIR="$HOME/.cache/bailiff"  # Cache directory
-BAILIFF_CACHE_EXPIRY=86400                # Cache expiry in seconds (24h)
+BAILIFF_CACHE_EXPIRY=2592000              # Cache expiry in seconds (30d)
 BAILIFF_QUIET=0                           # Set to 1 to silence messages
 BAILIFF_VERBOSE=0                         # Set to 1 to always show "already installed" messages
 BAILIFF_AUTO_SUMMON=1                     # Auto-install missing commands
@@ -122,10 +159,21 @@ bailiff --force asdf    # Force check/install regardless of cache status
 
 ## How It Works
 
-1. When you add `bailiff <tool>` to your `.zshrc`, Bailiff registers this tool
-2. Bailiff checks if the tool is already installed
-3. If not installed and not recently checked, Bailiff attempts to install it
-4. Future calls to the missing tool will auto-install it when used
+1. When you add `bailiff <tool>` to your `.zshrc`, each time you open a new tab, bailiff checks if the tool is already installed. If not installed and not recently checked, Bailiff attempts to install it
+2. Auto-Summoning, Bailiff will also attempt to install any command that isn't found, even if not explicitly declared. 
+
+### Universal Auto-Summoning
+
+Bailiff includes a powerful feature that attempts to install any command that isn't found in your system, not just those explicitly declared with `bailiff <tool>`. This means:
+
+- You don't need to pre-declare every tool you might use
+- When you type a command that doesn't exist, Bailiff will try to install it automatically
+- This works with any package that has the same name as its command
+
+This feature is enabled by default. If you with to disable it, you can set `BAILIFF_AUTO_SUMMON=0` in your configuration.
+
+It'll work when you type in a command with options. 
+![Bailiff](bailiff-demo-2.png)
 
 ## Forcing Installation Checks
 

@@ -22,7 +22,7 @@ fi
 
 # Default settings that can be overridden by user
 : ${BAILIFF_CACHE_DIR:="${XDG_CACHE_HOME:-$HOME/.cache}/bailiff"}
-: ${BAILIFF_CACHE_EXPIRY:=86400}  # 24 hours in seconds
+: ${BAILIFF_CACHE_EXPIRY:=2592000}  # 30 days in seconds
 : ${BAILIFF_LOG_FILE:="$BAILIFF_CACHE_DIR/summons.log"}
 : ${BAILIFF_PACKAGE_MANAGER:="auto"}  # auto, brew, apt, yum, pacman
 : ${BAILIFF_QUIET:=1}  # Set to 1 to suppress most messages
@@ -47,9 +47,6 @@ BAILIFF_TOOL_MAP=(
   "rg" "ripgrep"
   "fd" "fd-find"
 )
-
-# Array to store summoned tools
-typeset -a BAILIFF_SUMMONED_TOOLS
 
 # =====================================================
 # Internal Functions
@@ -182,7 +179,7 @@ Examples:
   
 Configuration (add to your .zshrc before sourcing bailiff.sh):
   BAILIFF_CACHE_DIR="$HOME/.cache/bailiff"  # Cache directory
-  BAILIFF_CACHE_EXPIRY=86400                # Cache expiry in seconds (24h)
+  BAILIFF_CACHE_EXPIRY=2592000                # Cache expiry in seconds (default 30d)
   BAILIFF_QUIET=0                           # Set to 1 to silence messages
   BAILIFF_VERBOSE=0                         # Set to 1 to always show "already installed" messages
   BAILIFF_AUTO_SUMMON=1                     # Auto-install missing commands
@@ -198,14 +195,14 @@ EOF
 _bailiff_command_not_found_handler() {
   local cmd=$1
   
-  # Check if auto-summon is enabled and if the command is in our list
-  if [[ "$BAILIFF_AUTO_SUMMON" -eq 1 && " ${BAILIFF_SUMMONED_TOOLS[@]} " =~ " ${cmd} " ]]; then
+  # Check if auto-summon is enabled (removed check for command in list to try installing any command)
+  if [[ "$BAILIFF_AUTO_SUMMON" -eq 1 ]]; then
     _bailiff_print "🔍 Bailiff: Command '$cmd' not found. Attempting to summon..."
     
-    if bailiff "$cmd"; then
+    if _bailiff_install_tool "$cmd"; then
       # Run the command if installation succeeded
       _bailiff_print "🚀 Bailiff: Running '$cmd $@'..."
-      "$cmd" "${@:2}"
+      "$cmd" "${@:2}" 
       return $?
     fi
   fi
@@ -345,9 +342,7 @@ bailiff() {
     rm -f "$BAILIFF_CACHE_DIR/${tool}_cache"
     _bailiff_print "🔄 Bailiff: Forcing check for '$tool'"
   fi
-  
-  # Add to summoned tools list
-  BAILIFF_SUMMONED_TOOLS+=("$tool")
+
   
   # Check if already installed
   if _bailiff_is_installed "$tool"; then
