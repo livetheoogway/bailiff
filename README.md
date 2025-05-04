@@ -51,18 +51,24 @@ The name "Bailiff" comes from the idea of summoning something when it's needed -
 brew install livetheoogway/bailiff/bailiff
 ```
 
+Add the following line to your `.zshrc`, for the auto-summoning feature to work:
+
+```bash
+source "$(brew --prefix)/bin/bailiff"
+```
+
 ### Manual Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/livetheoogway/bailiff.git ~/.local/share/bailifft
+git clone https://github.com/livetheoogway/bailiff.git ~/.local/share/bailiff
 
 # Add to your .zshrc
 echo 'source "$HOME/.local/share/bailiff/bailiff.sh"' >> ~/.zshrc
 ```
 
 ### Requirements
-- ZSH (or any POSIX-compliant shell)
+- ZSH
 - A package manager (Homebrew, apt, yum, pacman, etc.) installed on your system
 
 ## Usage
