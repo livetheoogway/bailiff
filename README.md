@@ -14,7 +14,7 @@ Typically when you type a command that is not installed, you get a message like 
 btop
 zsh: command not found: btop
 ```
-Image a world, where you type the command, but when it doesn't exist, it gets installed, and your workflow resumes undisturned.
+Image a world, where you type the command, but when it doesn't exist, it gets installed, and your workflow resumes undisturbed.
 ![Bailiff](bailiff-demo-1.webp)
 
 ### 2. setting up a new development environment
