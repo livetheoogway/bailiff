@@ -35,10 +35,11 @@ The name "Bailiff" comes from the idea of summoning something when it's needed -
 
 ## Features
 
-- **Zinit-like Syntax**: Simple, clean declaration of tools in your `.zshrc`
 - **Smart Caching**: Checks for tools only once a month by default
 - **Auto-Summoning**: Automatically installs tools when they're first used
 - **Cross-Platform**: Works with Homebrew, apt, yum, pacman, and more
+- **Multi-Shell Support**: Works with ZSH, Bash, Fish, and KSH
+- **Zinit-like Syntax**: Simple, clean declaration of tools in your shell config
 - **Package Manager Selection**: Specify which package manager to use for each tool
 - **Customizable**: Easily override default behavior
 - **Fast**: Minimal impact on shell startup time
@@ -51,10 +52,17 @@ The name "Bailiff" comes from the idea of summoning something when it's needed -
 brew install livetheoogway/bailiff/bailiff
 ```
 
-Add the following line to your `.zshrc`, for the auto-summoning feature to work:
+Add the following line to your shell configuration file, for the auto-summoning feature to work:
 
 ```bash
+# For ZSH:
 echo "source \"\$(/opt/homebrew/bin/bailiff --source-script)\"" >> ~/.zshrc
+
+# For Bash:
+echo "source \"\$(/opt/homebrew/bin/bailiff --source-script)\"" >> ~/.bashrc
+
+# For Fish:
+echo "source \"\$(/opt/homebrew/bin/bailiff --source-script)\"" >> ~/.config/fish/config.fish
 ```
 
 ### Manual Installation
@@ -63,12 +71,28 @@ echo "source \"\$(/opt/homebrew/bin/bailiff --source-script)\"" >> ~/.zshrc
 # Clone the repository
 git clone https://github.com/livetheoogway/bailiff.git ~/.local/share/bailiff
 
-# Add to your .zshrc
+# Add to your shell configuration file
+# For ZSH:
 echo 'source "$HOME/.local/share/bailiff/bailiff.sh"' >> ~/.zshrc
+
+# For Bash:
+echo 'source "$HOME/.local/share/bailiff/bailiff.sh"' >> ~/.bashrc
+
+# For Fish:
+echo 'source "$HOME/.local/share/bailiff/bailiff.sh"' >> ~/.config/fish/config.fish
+
+# For KSH:
+echo 'source "$HOME/.local/share/bailiff/bailiff.sh"' >> ~/.kshrc
+```
+
+Alternatively, you can use the installer script which will detect your shell automatically:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/livetheoogway/bailiff/main/install.sh | bash
 ```
 
 ### Requirements
-- ZSH
+- A supported shell (ZSH, Bash, Fish, or KSH)
 - A package manager (Homebrew, apt, yum, pacman, etc.) installed on your system
 
 ## Usage
@@ -88,11 +112,11 @@ Already downloaded: /Users/tushar.naik/Library/Caches/Homebrew/downloads/9bbfc75
 ```
 
 
-### Basic Syntax for auto installation from zshrc
+### Basic Syntax for auto installation in your shell config
 
-If you are the sort of guy that keeps your .bash_profile or .zshrc backed up and moving across machines, this should help.
+If you are the sort of person that keeps your shell configuration files backed up and moving across machines, this should help.
 
-In your `.zshrc`, after sourcing Bailiff, keep these pernanently:
+In your shell config file (`.zshrc`, `.bashrc`, `config.fish`, etc.), after sourcing Bailiff, keep these permanently:
 
 ```bash
 # Basic usage
@@ -114,12 +138,32 @@ BAILIFF_CACHE_EXPIRY=2592000              # Cache expiry in seconds (30d)
 BAILIFF_QUIET=0                           # Set to 1 to silence messages
 BAILIFF_VERBOSE=0                         # Set to 1 to always show "already installed" messages
 BAILIFF_AUTO_SUMMON=1                     # Auto-install missing commands
+```
 
-# Define command → package mappings
+For ZSH and Bash, define command → package mappings like this:
+
+```bash
+# For ZSH
 BAILIFF_TOOL_MAP=(
   "nvim" "neovim"
   "rg" "ripgrep"
 )
+
+# For Bash (version 4+)
+declare -A BAILIFF_TOOL_MAP
+BAILIFF_TOOL_MAP=(
+  ["nvim"]="neovim"
+  ["rg"]="ripgrep"
+)
+```
+
+For Fish, you would add this to your config.fish:
+
+```fish
+# Fish shell configuration
+set -x BAILIFF_CACHE_DIR "$HOME/.cache/bailiff"
+set -x BAILIFF_AUTO_SUMMON 1
+# Fish doesn't support associative arrays, but Bailiff handles this internally
 ```
 
 ### Common Tool Examples
@@ -165,8 +209,8 @@ bailiff --force asdf    # Force check/install regardless of cache status
 
 ## How It Works
 
-1. When you add `bailiff <tool>` to your `.zshrc`, each time you open a new tab, bailiff checks if the tool is already installed. If not installed and not recently checked, Bailiff attempts to install it
-2. Auto-Summoning, Bailiff will also attempt to install any command that isn't found, even if not explicitly declared. 
+1. When you add `bailiff <tool>` to your shell configuration file, each time you open a new terminal session, Bailiff checks if the tool is already installed. If not installed and not recently checked, Bailiff attempts to install it
+2. Auto-Summoning, Bailiff will also attempt to install any command that isn't found, even if not explicitly declared. This works across all supported shells (ZSH, Bash, Fish, and KSH).
 
 ### Universal Auto-Summoning
 
@@ -227,12 +271,15 @@ If you're installing from source or contributing to Bailiff, here's the recommen
 
 ```
 bailiff/
-├── bailiff.sh                   # Main script
+├── bailiff.sh                              # Main script
 ├── completions/
-│   └── _bailiff                 # ZSH completion
-├── install.sh                   # Installation script
-├── LICENSE                      # License file
-└── README.md                    # Documentation
+│   ├── _bailiff                           # ZSH completion
+│   ├── bailiff.bash                       # Bash completion
+│   ├── bailiff.fish                       # Fish completion
+│   └── fish_command_not_found.fish        # Fish command-not-found handler
+├── install.sh                              # Installation script
+├── LICENSE                                 # License file
+└── README.md                               # Documentation
 ```
 
 For Homebrew distribution, create a separate repository:
@@ -259,22 +306,26 @@ homebrew-bailiff/
 You can test Bailiff directly from the command line:
 
 ```bash
-# Test with direct execution
-zsh bailiff.sh --help                   # Show help
-zsh bailiff.sh --clear-cache            # Clear cache 
-zsh bailiff.sh brew htop                # Install htop with Homebrew
-zsh bailiff.sh -x nvim                  # Check if nvim is installed (verbose)
-zsh bailiff.sh asdf --force             # Force check for asdf even if recently checked
+# Test with direct execution in different shells
+bash bailiff.sh --help                  # Test with Bash
+zsh bailiff.sh --help                   # Test with ZSH
+fish bailiff.sh --help                  # Test with Fish
+
+# Common operations
+bash bailiff.sh --clear-cache           # Clear cache 
+bash bailiff.sh brew htop               # Install htop with Homebrew
+bash bailiff.sh -x nvim                 # Check if nvim is installed (verbose)
+bash bailiff.sh asdf --force            # Force check for asdf even if recently checked
 
 # Test by sourcing (preferred method)
 source bailiff.sh                       # Loads bailiff without displaying help
-bailiff --list                          # List installed tools
+bailiff --list                          # List all summoned tools
 bailiff brew antibody                   # Install antibody with Homebrew
 bailiff rg --force                      # Force check for ripgrep
 bailiff --force brew asdf               # Force check with package manager specified
 ```
 
-**Important**: When sourcing the script in your `.zshrc` or interactively, no help text is displayed. The help will only appear when running the command with no arguments (`bailiff`) after sourcing.
+**Important**: When sourcing the script in your shell configuration file or interactively, no help text is displayed. The help will only appear when running the command with no arguments (`bailiff`) after sourcing.
 
 ## License
 

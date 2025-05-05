@@ -1,7 +1,7 @@
-#!/usr/bin/env zsh
+#!/usr/bin/env bash
 
 # bailiff.sh - A tool to summon CLI tools when needed
-# Version: 1.0.5
+# Version: 1.0.6
 # Author: tushar.naik
 # License: MIT
 
@@ -14,6 +14,24 @@ if [[ -n $ZSH_EVAL_CONTEXT && $ZSH_EVAL_CONTEXT =~ :file$ ]]; then
   _BAILIFF_SOURCED=1
 elif [[ -n $BASH_VERSION && $0 != "$BASH_SOURCE" ]]; then
   _BAILIFF_SOURCED=1
+elif [[ -n $KSH_VERSION && "$(cd -- "$(dirname -- "$0")" && pwd -P)/$(basename -- "$0")" != "$(cd -- "$(dirname -- "${.sh.file}")" && pwd -P)/$(basename -- "${.sh.file}")" ]]; then
+  _BAILIFF_SOURCED=1
+elif [[ -n $FISH_VERSION ]]; then
+  # Fish has status --is-sourced but it's not available in all versions
+  # This is a workaround that should work in most cases
+  _BAILIFF_SOURCED=1
+fi
+
+# Detect current shell
+_BAILIFF_SHELL="unknown"
+if [[ -n $ZSH_VERSION ]]; then
+  _BAILIFF_SHELL="zsh"
+elif [[ -n $BASH_VERSION ]]; then
+  _BAILIFF_SHELL="bash"
+elif [[ -n $KSH_VERSION ]]; then
+  _BAILIFF_SHELL="ksh"
+elif [[ -n $FISH_VERSION ]]; then
+  _BAILIFF_SHELL="fish"
 fi
 
 # =====================================================
@@ -39,14 +57,43 @@ if [[ ! -f "$BAILIFF_INSTALLED_FILE" ]]; then
 fi
 
 # Map for custom binary names to package names
-typeset -A BAILIFF_TOOL_MAP
-# Default mappings
-BAILIFF_TOOL_MAP=(
-  "nvim" "neovim"
-  "python" "python3"
-  "rg" "ripgrep"
-  "fd" "fd-find"
-)
+if [[ "$_BAILIFF_SHELL" == "zsh" ]]; then
+  typeset -A BAILIFF_TOOL_MAP
+  # Default mappings
+  BAILIFF_TOOL_MAP=(
+    "nvim" "neovim"
+    "python" "python3"
+    "rg" "ripgrep"
+    "fd" "fd-find"
+  )
+else
+  # For bash and other shells, use associative array if supported
+  if [[ "$_BAILIFF_SHELL" == "bash" ]] && (( BASH_VERSINFO[0] >= 4 )); then
+    declare -A BAILIFF_TOOL_MAP
+    # Default mappings
+    BAILIFF_TOOL_MAP=( 
+      ["nvim"]="neovim"
+      ["python"]="python3"
+      ["rg"]="ripgrep"
+      ["fd"]="fd-find"
+    )
+  else
+    # Fallback for shells without associative arrays
+    # We'll use a function to emulate the behavior
+    BAILIFF_TOOL_MAP_KEYS="nvim python rg fd"
+    
+    _bailiff_get_package() {
+      local tool=$1
+      case "$tool" in
+        nvim) echo "neovim" ;;
+        python) echo "python3" ;;
+        rg) echo "ripgrep" ;;
+        fd) echo "fd-find" ;;
+        *) echo "$tool" ;;
+      esac
+    }
+  fi
+fi
 
 # =====================================================
 # Internal Functions
@@ -177,17 +224,18 @@ Examples:
   bailiff brew antibody           # Specify package manager (brew, apt, yum, pacman)
   bailiff brew rg ripgrep         # Specify both package manager and custom package name
   
-Configuration (add to your .zshrc before sourcing bailiff.sh):
+Configuration (add to your shell config file before sourcing bailiff.sh):
+  # For zsh: ~/.zshrc, bash: ~/.bashrc, fish: ~/.config/fish/config.fish, etc.
   BAILIFF_CACHE_DIR="$HOME/.cache/bailiff"  # Cache directory
-  BAILIFF_CACHE_EXPIRY=2592000                # Cache expiry in seconds (default 30d)
+  BAILIFF_CACHE_EXPIRY=2592000              # Cache expiry in seconds (default 30d)
   BAILIFF_QUIET=0                           # Set to 1 to silence messages
   BAILIFF_VERBOSE=0                         # Set to 1 to always show "already installed" messages
   BAILIFF_AUTO_SUMMON=1                     # Auto-install missing commands
-  
+
   # Custom mappings from command to package name
-  BAILIFF_TOOL_MAP+=(
-    "custom-tool" "actual-package-name"
-  )
+  # For example, to map 'custom-tool' to 'actual-package-name':
+  BAILIFF_TOOL_MAP_KEYS="nvim python rg fd custom-tool"
+  BAILIFF_TOOL_MAP_custom_tool="actual-package-name"
 EOF
 }
 
@@ -208,12 +256,28 @@ _bailiff_command_not_found_handler() {
   fi
   
   # Fallback to system handler if we couldn't resolve it
-  if typeset -f original_command_not_found_handler > /dev/null; then
-    original_command_not_found_handler "$@"
-  else
-    echo "zsh: command not found: $cmd" >&2
-    return 127
-  fi
+  case "$_BAILIFF_SHELL" in
+    zsh)
+      if typeset -f original_command_not_found_handler > /dev/null; then
+        original_command_not_found_handler "$@"
+      else
+        echo "zsh: command not found: $cmd" >&2
+        return 127
+      fi
+      ;;
+    bash)
+      if declare -F original_command_not_found_handle > /dev/null; then
+        original_command_not_found_handle "$@"
+      else
+        echo "bash: command not found: $cmd" >&2
+        return 127
+      fi
+      ;;
+    *)
+      echo "$_BAILIFF_SHELL: command not found: $cmd" >&2
+      return 127
+      ;;
+  esac
 }
 
 # =====================================================
@@ -224,7 +288,10 @@ _bailiff_command_not_found_handler() {
 bailiff() {
   # No arguments given
   if [[ $# -eq 0 ]]; then
-    _bailiff_help
+    # Only show help if not being sourced or if explicitly called with --help
+    if [[ $_BAILIFF_SOURCED -eq 0 ]]; then
+      _bailiff_help
+    fi
     return 0
   fi
   
@@ -235,7 +302,7 @@ bailiff() {
       return 0
       ;;
     --version|-v)
-      echo "bailiff v1.0.5"
+      echo "bailiff v1.0.6"
       return 0
       ;;
     --list|-l)
@@ -333,8 +400,17 @@ bailiff() {
   done
   
   # Check if we have a mapping for this tool
-  if [[ -n "${BAILIFF_TOOL_MAP[$tool]}" ]]; then
-    package="${BAILIFF_TOOL_MAP[$tool]}"
+  if [[ "$_BAILIFF_SHELL" == "zsh" ]]; then
+    if [[ -n "${BAILIFF_TOOL_MAP[$tool]}" ]]; then
+      package="${BAILIFF_TOOL_MAP[$tool]}"
+    fi
+  elif [[ "$_BAILIFF_SHELL" == "bash" ]] && (( BASH_VERSINFO[0] >= 4 )); then
+    if [[ -n "${BAILIFF_TOOL_MAP[$tool]}" ]]; then
+      package="${BAILIFF_TOOL_MAP[$tool]}"
+    fi
+  else
+    # Use the fallback function for shells without associative arrays
+    package=$(_bailiff_get_package "$tool")
   fi
   
   # If force flag is set, clear the cache for this tool
@@ -377,18 +453,53 @@ bailiff() {
 
 # Setup the command not found handler
 if [[ $_BAILIFF_SOURCED -eq 1 && "$BAILIFF_AUTO_SUMMON" -eq 1 ]]; then
-  # Backup original handler if it exists
-  if typeset -f command_not_found_handler > /dev/null; then
-    function original_command_not_found_handler() {
-      echo "zsh: command not found: $1" >&2
-      return 127
-    }
-  fi
-  
-  # Define the new handler
-  function command_not_found_handler() {
-    _bailiff_command_not_found_handler "$@"
-  }
+  case "$_BAILIFF_SHELL" in
+    zsh)
+      # Backup original handler if it exists
+      if typeset -f command_not_found_handler > /dev/null; then
+        function original_command_not_found_handler() {
+          echo "zsh: command not found: $1" >&2
+          return 127
+        }
+      fi
+      
+      # Define the new handler
+      function command_not_found_handler() {
+        _bailiff_command_not_found_handler "$@"
+      }
+      ;;
+    bash)
+      # Bash uses command_not_found_handle (no 'r' at the end)
+      # Backup original handler if it exists
+      if declare -F command_not_found_handle > /dev/null; then
+        function original_command_not_found_handle() {
+          echo "bash: command not found: $1" >&2
+          return 127
+        }
+      fi
+      
+      # Define the new handler
+      function command_not_found_handle() {
+        _bailiff_command_not_found_handler "$@"
+      }
+      ;;
+    fish)
+      # Fish uses a different mechanism, but we can't easily set it up here
+      # Users would need to create a function in ~/.config/fish/functions/fish_command_not_found.fish
+      _bailiff_print "Note: For Fish shell, auto-summoning requires manual setup."
+      _bailiff_print "Create a file at ~/.config/fish/functions/fish_command_not_found.fish with:"
+      _bailiff_print "function fish_command_not_found"
+      _bailiff_print "    bailiff \$argv[1]"
+      _bailiff_print "    if type -q \$argv[1]"
+      _bailiff_print "        eval \$argv"
+      _bailiff_print "    end"
+      _bailiff_print "end"
+      ;;
+    *)
+      _bailiff_print "Note: Auto-summoning may not work in $_BAILIFF_SHELL shell."
+      _bailiff_print "Consider manually running 'bailiff <command>' before using new commands."
+      ;;
+  esac
 fi
 
 # If the script is executed directly, not sourced, process arguments
