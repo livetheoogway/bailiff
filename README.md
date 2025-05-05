@@ -35,7 +35,8 @@ The name "Bailiff" comes from the idea of summoning something when it's needed -
 
 ## Features
 
-- **Zinit-like Syntax**: Simple, clean declaration of tools in your `.zshrc`
+- **Zinit-like Syntax**: Simple, clean declaration of tools in your shell config
+- **Multi-Shell Support**: Works with zsh, bash, ksh, fish, and other POSIX shells
 - **Smart Caching**: Checks for tools only once a month by default
 - **Auto-Summoning**: Automatically installs tools when they're first used
 - **Cross-Platform**: Works with Homebrew, apt, yum, pacman, and more
@@ -63,12 +64,17 @@ echo "source \"\$(/opt/homebrew/bin/bailiff --source-script)\"" >> ~/.zshrc
 # Clone the repository
 git clone https://github.com/livetheoogway/bailiff.git ~/.local/share/bailiff
 
-# Add to your .zshrc
+# Add to your shell configuration file
+# For zsh:
 echo 'source "$HOME/.local/share/bailiff/bailiff.sh"' >> ~/.zshrc
+# For bash:
+echo 'source "$HOME/.local/share/bailiff/bailiff.sh"' >> ~/.bashrc
+# For fish:
+echo 'source "$HOME/.local/share/bailiff/bailiff.sh"' >> ~/.config/fish/config.fish
 ```
 
 ### Requirements
-- ZSH
+- A POSIX-compliant shell (zsh, bash, ksh, sh, etc.)
 - A package manager (Homebrew, apt, yum, pacman, etc.) installed on your system
 
 ## Usage
@@ -115,11 +121,11 @@ BAILIFF_QUIET=0                           # Set to 1 to silence messages
 BAILIFF_VERBOSE=0                         # Set to 1 to always show "already installed" messages
 BAILIFF_AUTO_SUMMON=1                     # Auto-install missing commands
 
-# Define command → package mappings
-BAILIFF_TOOL_MAP=(
-  "nvim" "neovim"
-  "rg" "ripgrep"
-)
+# Define command → package mappings (shell-agnostic syntax)
+BAILIFF_TOOL_MAP_KEYS="nvim rg custom-tool"
+BAILIFF_TOOL_MAP_nvim="neovim"
+BAILIFF_TOOL_MAP_rg="ripgrep"
+BAILIFF_TOOL_MAP_custom_tool="actual-package-name"
 ```
 
 ### Common Tool Examples
@@ -180,6 +186,35 @@ This feature is enabled by default. If you with to disable it, you can set `BAIL
 
 It'll work when you type in a command with options. 
 ![Bailiff](bailiff-demo-2.png)
+
+### Multi-Shell Support
+
+Bailiff now works across multiple shell environments:
+
+- **Zsh**: Full support with `command_not_found_handler`
+- **Bash**: Full support with `command_not_found_handle` (note the missing 'r')
+- **Fish**: Support via custom `fish_command_not_found` function
+- **Ksh/Sh**: Basic support with manual invocation
+
+Each shell has its own way of handling "command not found" events, and Bailiff adapts accordingly:
+
+```bash
+# For zsh users - works out of the box
+source bailiff.sh
+
+# For bash users - works out of the box
+source bailiff.sh
+
+# For fish users - add this to your config.fish after sourcing
+function fish_command_not_found
+  bailiff $argv[1]
+  if test $status -eq 0
+    eval $argv
+  end
+end
+```
+
+The shell detection happens automatically when you source the script, so you don't need to specify which shell you're using.
 
 ## Forcing Installation Checks
 
@@ -253,18 +288,24 @@ homebrew-bailiff/
 | Syntax | Simple | Complex | Verbose | Verbose |
 | Caching | Yes | Yes | No | No |
 | Auto-install | Yes | No | No | No |
+| Multi-shell | Yes | ZSH only | Yes | Yes |
 
 ## Testing
 
-You can test Bailiff directly from the command line:
+You can test Bailiff directly from the command line with any shell:
 
 ```bash
-# Test with direct execution
-zsh bailiff.sh --help                   # Show help
-zsh bailiff.sh --clear-cache            # Clear cache 
-zsh bailiff.sh brew htop                # Install htop with Homebrew
+# Test with direct execution in different shells
+zsh bailiff.sh --help                   # Test with zsh
+bash bailiff.sh --help                  # Test with bash
+sh bailiff.sh --help                    # Test with sh
+ksh bailiff.sh --help                   # Test with ksh (if available)
+
+# Common test operations
+sh bailiff.sh --clear-cache             # Clear cache 
+bash bailiff.sh brew htop               # Install htop with Homebrew
 zsh bailiff.sh -x nvim                  # Check if nvim is installed (verbose)
-zsh bailiff.sh asdf --force             # Force check for asdf even if recently checked
+bash bailiff.sh asdf --force            # Force check for asdf
 
 # Test by sourcing (preferred method)
 source bailiff.sh                       # Loads bailiff without displaying help
@@ -274,7 +315,7 @@ bailiff rg --force                      # Force check for ripgrep
 bailiff --force brew asdf               # Force check with package manager specified
 ```
 
-**Important**: When sourcing the script in your `.zshrc` or interactively, no help text is displayed. The help will only appear when running the command with no arguments (`bailiff`) after sourcing.
+**Important**: When sourcing the script in your shell configuration file or interactively, no help text is displayed. The help will only appear when running the command with no arguments (`bailiff`) after sourcing.
 
 ## License
 
